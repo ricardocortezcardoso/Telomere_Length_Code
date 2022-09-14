@@ -41,7 +41,7 @@ coloc_func<-function(snp_list,output_folder,output_name){
     temp0=left_join(temp0,temp2,by='rsid')
     
     temp0=na.omit(temp0) #remove rows with any NA from data.frame
-    temp0 %>% mutate(z_1=beta_1/beta_se_1,z_2=beta_1/beta_se_2)-> temp0
+    temp0 %>% mutate(z_1=beta_1/beta_se_1,z_2=beta_2/beta_se_2)-> temp0
     
     #ld matrix used by conditioning and mask methods
     skip_to_next <- FALSE
