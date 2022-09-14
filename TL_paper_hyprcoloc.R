@@ -1,6 +1,6 @@
 ##This code was developed to run hyprcoloc
 
-#installing hyprcoloc and plotting functions
+#installing hyprcoloc
 #devtools::install_github("cnfoley/hyprcoloc", build_opts = c("--resave-data", "--no-manual"), build_vignettes = TRUE)
 
 #imput: snps_list is a string vector with the RSIDs of interest to be queried
