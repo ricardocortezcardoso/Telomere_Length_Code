@@ -1,0 +1,477 @@
+---
+title: "Telomeres and Lung Cancer RIsk"
+output: html_notebook
+---
+
+## Load in the Libraries
+```{r}
+library(TwoSampleMR)
+library(data.table)
+
+## Call the functions we will need
+source("")
+
+
+```
+
+
+## Load in the Cancer  Outcome data
+```{r}
+ lung_overall <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+
+  lung_overall$beta.outcome <- log(lung_overall$beta.outcome) 
+  
+  lung_overall$outcome <- "Lung Overall"
+  lung_overall$id.outcome <- "Lung Overall"
+  lung_adeno <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+  lung_adeno$beta.outcome <- log(lung_adeno$beta.outcome) 
+    lung_adeno$outcome <- "Lung Adeno"
+  lung_adeno$id.outcome <- "Lung Adeno"
+
+  lung_small <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+
+  lung_small$beta.outcome <- log(lung_small$beta.outcome) 
+      lung_small$outcome <- "Lung Small"
+  lung_small$id.outcome <- "Lung Small"
+  lung_squam <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+ 
+  lung_squam$beta.outcome <- log(lung_squam$beta.outcome) 
+      lung_squam$outcome <- "Lung Squamous"
+  lung_squam$id.outcome <- "Lung Squamous"
+  
+
+  lung_never <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+ 
+  lung_never$beta.outcome <- log(lung_never$beta.outcome) 
+      lung_never$outcome <- "Lung Never"
+  lung_never$id.outcome <- "Lung Never"
+  
+  
+    lung_ever <- read_outcome_data(
+    filename = "",
+    sep = "\t",
+    snp_col = "rs_number",
+    beta_col = "OR_fixed",
+    se_col = "StdError_fixed",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "reference_allele",
+    pval_col = "Pvalue_fixed",
+    eaf_col = "EAF"
+  )
+ 
+  lung_ever$beta.outcome <- log(lung_ever$beta.outcome) 
+      lung_ever$outcome <- "Lung Ever"
+  lung_ever$id.outcome <- "Lung Ever"
+```
+
+
+
+
+## Load in the Telomere Instruments
+```{r}
+Telomere_Length <- fread("~/OneDrive - IARC/Telomeres_Cancer_Risk/gw_hits_tel_len_updated.csv")
+
+Telomere_Length <- format_data(Telomere_Length, snp_col = "rsid",
+                         beta_col = "beta",
+                         se_col = "beta_se" ,
+                         effect_allele_col = "a1",
+                         other_allele_col = "a0",
+                         chr_col = "chr",pos_col = "pos",pval_col = "p",eaf_col = "a1_freq"
+                    )
+Telomere_Length$exposure <- "Telomere Length"
+Telomere_Length$id.exposure <- "Telomere Length"
+
+Telomere_Length <- clump_data(Telomere_Length, clump_r2 = 0.01)
+
+```
+
+
+## QC instruments 
+```{r}
+
+
+###### Overall Lung Cancer
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_overall[lung_overall$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_overall)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_overall <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+###### Adeno Lung Cancer
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_adeno[lung_adeno$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_adeno)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_adeno <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+
+
+###### Sqaum Lung Cancer
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_squam[lung_squam$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_squam)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_squam <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+
+
+###### Small Lung Cancer
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_small[lung_small$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_small)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_small <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+
+###### Never Lung Cancer
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_never[lung_never$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_never)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_Never <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+
+## Find out which SNPs are in the lung dat and which need proxies 
+no_Proxy <- lung_ever[lung_ever$SNP %in% Telomere_Length$SNP,]
+
+## Lets look for proxies for those SNPs that we dont have in our data
+SNPs_to_be_proxied <- Telomere_Length[!Telomere_Length$SNP %in% no_Proxy$SNP,]
+Proxy_SNPs <- data.frame()
+for (snp in seq(1,length(SNPs_to_be_proxied$SNP),1)) {
+  temp_snp <- get_proxy_snps(as.character(SNPs_to_be_proxied$SNP[snp]), 0.8, lung_ever)
+  if(is.data.frame(temp_snp)) {
+    Proxy_SNPs <- rbind(Proxy_SNPs, temp_snp)
+  }
+}
+
+## format the proxy SNPs
+Proxy_SNPs_Formatted <-  format_proxies(Proxy_SNPs)
+
+## combine with proxy SNPs
+out_dat_All <- rbind(Proxy_SNPs_Formatted, no_Proxy)
+
+## try to harmonise
+Harm_Dat_Ever <- harmonise_data(
+  Telomere_Length,
+  out_dat_All
+)
+
+```
+
+
+```{r}
+Telomeres_Results_Lung <-data.frame()
+for(harm_dat in list(Harm_Dat_adeno, Harm_Dat_overall, Harm_Dat_small, Harm_Dat_squam,
+                     Harm_Dat_Ever, Harm_Dat_Never)) {
+  temp_res <- MR_Analysis(harm_dat)
+  Telomeres_Results_Lung <- rbind(Telomeres_Results_Lung, temp_res)
+}
+
+```
+
+
+
+
+## Run the Sensitivity analyses
+```{r}
+
+### LOO
+Telomere_Loo <- data.frame()
+for(harm_dat in list(Harm_Dat_overall, Harm_Dat_adeno,Harm_Dat_squam,
+                  Harm_Dat_small, Harm_Dat_Ever, Harm_Dat_Never)) {
+  loo <- TwoSampleMR::mr_leaveoneout(harm_dat)
+  Telomere_Loo <- rbind(Telomere_Loo, loo)
+}
+
+
+## Single SNP
+Telomere_Single_SNP <- data.frame()
+for(harm_dat in list(Harm_Dat_overall, Harm_Dat_adeno,Harm_Dat_squam,
+                  Harm_Dat_small, Harm_Dat_Ever, Harm_Dat_Never)) {
+  single_snp <- TwoSampleMR::mr_singlesnp(harm_dat)
+  Telomere_Single_SNP <- rbind(Telomere_Single_SNP, single_snp)
+}
+
+
+## Egger Intercept
+Telomere_Egger <- data.frame()
+for(harm_dat in list(Harm_Dat_overall, Harm_Dat_adeno,Harm_Dat_squam,
+                  Harm_Dat_small, Harm_Dat_Ever, Harm_Dat_Never)) {
+  egger <- TwoSampleMR::mr_pleiotropy_test(harm_dat)
+  Telomere_Egger <- rbind(Telomere_Egger, egger)
+}
+
+
+
+## Heterogeneity
+Telomere_Het <- data.frame()
+for(harm_dat in list(Harm_Dat_overall, Harm_Dat_adeno,Harm_Dat_squam,
+                  Harm_Dat_small, Harm_Dat_Ever, Harm_Dat_Never)) {
+  het <- TwoSampleMR::mr_heterogeneity(harm_dat)
+  Telomere_Het <- rbind(Telomere_Het, het)
+}
+
+
+
+```
+
+## MVMR BMI
+```{r}
+
+Telomeres_Results_MVMR <-data.frame()
+for(out_dat in list(lung_adeno, lung_overall, lung_small, lung_squam,
+                     lung_ever, lung_never)) {
+  temp_res <- run_MVMR(Telomere_Length, "ukb-b-19953", out_dat)
+  Telomeres_Results_MVMR <- rbind(Telomeres_Results_MVMR, temp_res)
+}
+
+
+```
+
+
+## Functions
+```{r}
+
+
+  
+run_MVMR <- function(exp_dat,middle_trait, outcome_dat){
+  ## grab out the middle trait we want
+  dh <- subset(exp_dat, select = c(SNP,  exposure, id.exposure, effect_allele.exposure, other_allele.exposure, 
+                             eaf.exposure, beta.exposure, se.exposure, pval.exposure))
+  for (trait in middle_trait) {
+    exposure_2 <- extract_outcome_data(exp_dat[,"SNP"], 
+                                       trait)
+    ## harminose these two
+    d <- harmonise_data(exp_dat, exposure_2)
+    ## exposure 2
+    dh2 <- subset(d, select = c(SNP, outcome, id.outcome, effect_allele.outcome, 
+                                other_allele.outcome, eaf.outcome, beta.outcome, se.outcome, 
+                                pval.outcome))
+    ## fix the naming
+    names(dh2) <- gsub("outcome", "exposure", names(dh2))
+    ##make dataframe inu format we need later
+    dh <- rbind(dh, dh2)
+  }
+
+    ##harmonise data with outcome
+    dat <- mv_harmonise_data(dh, outcome_dat)
+
+    res_ivw <- mv_ivw(dat)
+    
+    return(res_ivw$result)
+}
+
+MR_Analysis <- function(dat){
+  library(TwoSampleMR)
+  ## We want to run IVW, IVW-Steiger, Weighted Median, MR-PRESSO, Contamination-Mixture, MR-RAPS
+  print("Running Initial TwoSampleMR Analysis")
+  Results_MR <- mr(dat, method_list = c("mr_ivw", "mr_weighted_median", "mr_egger_regression"))
+
+  ## Create Confidence intervals
+  Results_MR$OR <- exp(Results_MR$b)
+  Results_MR$LCI <- exp(Results_MR$b-(1.96*Results_MR$se))
+  Results_MR$UCI <- exp(Results_MR$b+(1.96*Results_MR$se))
+
+  
+  ## Convert the dataframe to the Mendelian Randomisation format
+  MR_Dat <- dat_to_MRInput(dat)
+  print("Running Contamination Mixture Model Analysis")
+  ## Run the contamination mixture model
+  MR_Conmix <- MendelianRandomization::mr_conmix(MR_Dat[[1]], 
+                                                 psi = 3, CIMin = -1, CIMax = 5, CIStep = 0.01)
+  ## Merge through the results
+  Results_MR[4,c("method","OR", "LCI","UCI", "pval")] <- 
+    c("Contamination Mixture", 
+      exp(MR_Conmix@Estimate),
+      exp(MR_Conmix@CILower), 
+      exp(MR_Conmix@CIUpper), 
+      MR_Conmix@Pvalue)
+  print("Running MR-PRESSO Analysis")
+  ## Run MR-PRESSO
+  MR_PRESSO_Res <- run_mr_presso(dat,NbDistribution = 5000)
+
+  ## create the OR and CI  
+  MR_PRESSO_Res[[1]]$`Main MR results`$OR <- 
+    exp(MR_PRESSO_Res[[1]]$`Main MR results`$`Causal Estimate`)
+  MR_PRESSO_Res[[1]]$`Main MR results`$LCI <- 
+    exp(MR_PRESSO_Res[[1]]$`Main MR results`$`Causal Estimate`-(1.96*MR_PRESSO_Res[[1]]$`Main MR results`$Sd))
+  MR_PRESSO_Res[[1]]$`Main MR results`$UCI <- 
+    exp(MR_PRESSO_Res[[1]]$`Main MR results`$`Causal Estimate`+(1.96*MR_PRESSO_Res[[1]]$`Main MR results`$Sd))
+  
+  ## Merge through the results
+  Results_MR[5:6,c("method","pval","OR", "LCI","UCI" )] <- 
+    MR_PRESSO_Res[[1]]$`Main MR results`[,c(2,6:9)]
+  ## Detach the TwoSampleMR package because it has an out of date MR-RAPS
+  detach("package:TwoSampleMR", unload=TRUE)
+  require(mr.raps)
+  print("Running MR-RAPS Analysis")
+  RAPS_Res <- mr.raps(dat)
+
+  ## Create Confidence intervals
+  RAPS_Dat <- data.frame(Method = "MR-RAPS")
+  RAPS_Dat$OR <- exp(RAPS_Res$beta.hat)
+  RAPS_Dat$LCI <- exp(RAPS_Res$beta.hat-(1.96*RAPS_Res$beta.se))
+  RAPS_Dat$UCI <- exp(RAPS_Res$beta.hat+(1.96*RAPS_Res$beta.se))
+  RAPS_Dat$pval <- pnorm(abs(RAPS_Res$beta.hat)/RAPS_Res$beta.se, lower.tail = FALSE) * 2
+  
+
+  Results_MR[7,c("method","OR", "LCI","UCI", "pval")] <- 
+  c(RAPS_Dat$Method, RAPS_Dat$OR,RAPS_Dat$LCI, RAPS_Dat$UCI , RAPS_Dat$pval)
+  print("Returning Dataframe")
+  ## Fix some of the columns
+  Results_MR$exposure <- Results_MR$exposure[1]
+  Results_MR$outcome <- Results_MR$outcome[1]
+  
+  return(Results_MR)
+}
+```
+
